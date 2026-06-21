@@ -1,0 +1,330 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Stick Fight</title>
+<style>
+body{background:#111;color:#fff;font-family:Arial;margin:0;padding:20px}
+h1{text-align:center;margin:0 0 20px}
+.container{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between}
+.panel{background:#222;padding:15px;border-radius:10px;flex:1 1 330px}
+.section-title{margin:10px 0 5px;color:#ffb347;font-weight:bold}
+.divider{height:2px;background:#444;margin:5px 0}
+.fighter-view{background:#000;height:280px;border-radius:10px;position:relative;overflow:hidden;display:flex;justify-content:center;align-items:center}
+.stick{position:absolute;width:120px;height:240px;transition:.2s}
+.ko{transform:rotate(90deg) translateY(40px);opacity:.6}
+.head{width:60px;height:60px;border-radius:50%;background:#fff;position:absolute;top:0;left:50%;transform:translateX(-50%)}
+.hair{width:60px;height:30px;background:red;border-radius:50% 50% 0 0;position:absolute;top:0;left:50%;transform:translateX(-50%);display:none}
+.hat{position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:38px;display:none}
+.torso{width:12px;height:95px;background:#fff;position:absolute;top:60px;left:50%;transform:translateX(-50%)}
+.arm{width:75px;height:10px;background:#fff;position:absolute;top:95px;transform-origin:left center}
+.arm.left{left:50%;transform:translateX(-100%)}
+.arm.right{left:50%}
+.leg{width:12px;height:85px;background:#fff;position:absolute;top:155px}
+.leg.left{left:45%}
+.leg.right{left:55%}
+.name-tag{position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);background:#000a;padding:3px 8px;border-radius:6px;font-size:15px}
+.hp-bar{height:18px;background:#444;border-radius:10px;overflow:hidden;margin-bottom:8px}
+.hp-fill{height:100%;width:100%;background:#2ecc71;transition:.3s}
+.hp-fill.grom{background:gold}
+.money-aura,.chunk-aura{position:absolute;left:50%;top:120px;transform:translateX(-50%);pointer-events:none;font-size:20px}
+.money-aura span,.chunk-aura span{position:absolute;animation:float 3s linear infinite}
+.coin-orbit,.chunk-orbit{position:absolute;left:50%;top:120px;transform:translateX(-50%);width:130px;height:130px;pointer-events:none}
+.coin-orbit span,.chunk-orbit span{position:absolute;font-size:18px;animation:orbit 6s linear infinite}
+.laser{position:absolute;height:6px;background:linear-gradient(90deg,#fff,red,orange);top:30px;left:60px;width:0;box-shadow:0 0 10px red}
+@keyframes punch{0%{transform:translateX(0)}50%{transform:translateX(25px) rotate(25deg)}100%{transform:translateX(0)}}
+@keyframes hit{0%,100%{transform:translateX(0)}25%{transform:translateX(-20px)}50%{transform:translateX(20px)}75%{transform:translateX(-20px)}}
+@keyframes walk{0%{transform:translateX(0)}100%{transform:translateX(180px)}}
+@keyframes shake{0%,100%{transform:translate(0)}25%{transform:translate(10px,-10px)}50%{transform:translate(-10px,10px)}75%{transform:translate(10px,10px)}}
+@keyframes float{0%{opacity:0;transform:translateY(20px)}20%{opacity:1}100%{opacity:0;transform:translateY(-40px)}}
+@keyframes orbit{0%{transform:rotate(0) translateX(65px) rotate(0)}100%{transform:rotate(360deg) translateX(65px) rotate(-360deg)}}
+@keyframes beam{0%{width:0}30%{width:200px}80%{width:200px}100%{width:0}}
+button{padding:10px 20px;font-size:16px;border:none;border-radius:6px;background:#ffb347;color:#000;cursor:pointer;margin-top:10px}
+</style>
+</head>
+
+<body>
+<h1>Stick Figure Showdown</h1>
+
+<audio id="sndPunch" src="https://actions.google.com/sounds/v1/impacts/punch_2.ogg"></audio>
+<audio id="sndStart" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+<audio id="sndWin" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+
+<div class="container">
+
+<!-- FIGHTER PANEL TEMPLATE -->
+<script>
+function fighterPanel(id){
+return `
+<div class="panel">
+<h2>Fighter ${id}</h2>
+<div class="hp-bar"><div id="hp${id}" class="hp-fill"></div></div>
+<div class="fighter-view">
+<div class="stick" id="stick${id}" style="${id==1?"left:40px":"right:40px"}">
+<div class="money-aura" id="aura${id}"></div>
+<div class="coin-orbit" id="orbit${id}"></div>
+<div class="chunk-aura" id="caura${id}"></div>
+<div class="chunk-orbit" id="corbit${id}"></div>
+<div class="hair" id="hair${id}"></div>
+<div class="hat" id="hat${id}"></div>
+<div class="head" id="head${id}"></div>
+<div class="torso" id="torso${id}"></div>
+<div class="arm left" id="larm${id}"></div>
+<div class="arm right" id="rarm${id}"></div>
+<div class="leg left" id="lleg${id}"></div>
+<div class="leg right" id="rleg${id}"></div>
+<div class="name-tag" id="name${id}">Fighter ${id}</div>
+</div></div>
+
+<div class="section-title">Appearance</div><div class="divider"></div>
+${["head","torso","larm","rarm","lleg","rleg"].map(p=>`<label>${p}<input type="color" id="f${id}_${p}" value="#ffffff"></label>`).join("")}
+<label>Hair<input type="color" id="f${id}_haircolor" value="#ff0000"></label>
+
+<div class="section-title">Accessories</div><div class="divider"></div>
+<label>Hat<select id="f${id}_hat">
+<option value="">None</option><option>🧢</option><option>👒</option><option>🎩</option>
+<option>🎓</option><option>🪖</option><option>⛑️</option><option>💈</option>
+</select></label>
+
+<div class="section-title">Identity</div><div class="divider"></div>
+<label>Name<input id="f${id}_name" value="Fighter ${id}"></label>
+<label>Power <span id="f${id}_power_label">3</span>
+<input type="range" id="f${id}_power" min="0" max="100" value="3"></label>
+
+<div><button id="rand${id}">Randomize</button>
+<button id="save${id}">Save</button>
+<button id="load${id}">Load</button></div>
+</div>`;
+}
+document.write(fighterPanel(1)+fighterPanel(2));
+</script>
+
+<div class="panel" style="flex:1 1 100%">
+<h2>Battle Log</h2>
+<div id="log" style="height:200px;overflow-y:auto;background:#000;padding:10px;border-radius:8px"></div>
+<button id="fightBtn">START FIGHT</button>
+</div>
+
+</div>
+
+<script>
+// quick binds
+function bindColor(i,p){i.oninput=e=>p.style.background=e.target.value}
+["1","2"].forEach(id=>{
+["head","torso","larm","rarm","lleg","rleg"].forEach(p=>bindColor(
+document.getElementById(`f${id}_${p}`),
+document.getElementById(`${p}${id}`)
+));
+document.getElementById(`f${id}_haircolor`).oninput=e=>{
+let h=document.getElementById(`hair${id}`);h.style.display="block";h.style.background=e.target.value
+};
+document.getElementById(`f${id}_hat`).onchange=e=>{
+let h=document.getElementById(`hat${id}`);h.textContent=e.target.value;h.style.display=e.target.value?"block":"none"
+};
+});
+
+// aura builders
+function moneyAura(a,o){
+a.innerHTML="";o.innerHTML="";
+for(let i=0;i<6;i++){
+let s=document.createElement("span");
+s.textContent=Math.random()<.6?"💸":"🪙";
+s.style.left=(Math.random()*40-20)+"px";
+s.style.animationDelay=Math.random()*2+"s";
+a.appendChild(s);
+}
+for(let i=0;i<4;i++){
+let c=document.createElement("span");
+c.textContent="🪙";c.style.animationDelay=i*.5+"s";o.appendChild(c)
+}
+}
+
+const cCommon=["🫪","💀","😭","😡"],cRare=["👾","🧛🏽‍♂️","🧌","🕴🏽","🫈","👣"];
+function chunkAura(a,o){
+a.innerHTML="";o.innerHTML="";
+let total=12+Math.random()*4|0;
+for(let i=0;i<total;i++){
+let s=document.createElement("span");
+s.textContent=Math.random()<.7?cCommon[Math.random()*cCommon.length|0]:cRare[Math.random()*cRare.length|0];
+s.style.left=(Math.random()*60-30)+"px";
+s.style.animationDelay=Math.random()*3+"s";
+a.appendChild(s);
+}
+for(let i=0;i<6;i++){
+let c=document.createElement("span");
+c.textContent=Math.random()<.7?cCommon[Math.random()*cCommon.length|0]:cRare[Math.random()*cRare.length|0];
+c.style.animationDelay=i*.7+"s";o.appendChild(c)
+}
+}
+
+// modes
+function gromMode(id){
+let n=document.getElementById(`f${id}_name`).value.toLowerCase();
+let hp=document.getElementById(`hp${id}`),a=document.getElementById(`aura${id}`),o=document.getElementById(`orbit${id}`);
+hp.classList.remove("grom");a.innerHTML="";o.innerHTML="";
+if(n==="grom"){
+document.getElementById(`f${id}_power`).value=100;
+document.getElementById(`f${id}_power_label`).textContent="100";
+document.getElementById(`f${id}_hat`).value="💰";
+document.getElementById(`hat${id}`).textContent="💰";
+document.getElementById(`hat${id}`).style.display="block";
+hp.classList.add("grom");
+moneyAura(a,o);
+}
+}
+
+function chunkMode(id){
+let n=document.getElementById(`f${id}_name`).value.toLowerCase();
+let a=document.getElementById(`caura${id}`),o=document.getElementById(`corbit${id}`);
+a.innerHTML="";o.innerHTML="";
+if(n==="chunk"){
+document.getElementById(`f${id}_power`).value=0;
+document.getElementById(`f${id}_power_label`).textContent="0";
+document.getElementById(`f${id}_hat`).value="";
+document.getElementById(`hat${id}`).textContent="";
+document.getElementById(`hat${id}`).style.display="none";
+chunkAura(a,o);
+}
+}
+
+// name listeners
+["1","2"].forEach(id=>{
+document.getElementById(`f${id}_name`).oninput=e=>{
+document.getElementById(`name${id}`).textContent=e.target.value;
+gromMode(id);chunkMode(id);
+};
+});
+
+// randomizer
+function randColor(){return"#"+(Math.random()*16777215|0).toString(16).padStart(6,"0")}
+function randHat(){return["","🧢","👒","🎩","🎓","🪖","⛑️","💈"][Math.random()*8|0]}
+function randName(){return["Blitz","Razor","Chunk","Mondo","Zap","Flex","Grom","Turbo","Skully","Munch"][Math.random()*10|0]}
+
+function randomize(id){
+["head","torso","larm","rarm","lleg","rleg"].forEach(p=>{
+let i=document.getElementById(`f${id}_${p}`),c=randColor();i.value=c;i.oninput({target:i})
+});
+let hc=randColor();
+document.getElementById(`f${id}_haircolor`).value=hc;
+document.getElementById(`hair${id}`).style.display="block";
+document.getElementById(`hair${id}`).style.background=hc;
+let h=randHat();
+document.getElementById(`f${id}_hat`).value=h;
+document.getElementById(`hat${id}`).textContent=h;
+document.getElementById(`hat${id}`).style.display=h?"block":"none";
+let nm=randName();
+document.getElementById(`f${id}_name`).value=nm;
+document.getElementById(`name${id}`).textContent=nm;
+gromMode(id);chunkMode(id);
+}
+
+rand1.onclick=()=>randomize(1);
+rand2.onclick=()=>randomize(2);
+
+// save/load
+function getState(id){
+return{
+n:document.getElementById(`f${id}_name`).value,
+p:document.getElementById(`f${id}_power`).value,
+c:["head","torso","larm","rarm","lleg","rleg"].map(x=>document.getElementById(`f${id}_${x}`).value),
+h:document.getElementById(`f${id}_haircolor`).value,
+t:document.getElementById(`f${id}_hat`).value
+};
+}
+function applyState(id,s){
+if(!s)return;
+document.getElementById(`f${id}_name`).value=s.n;
+document.getElementById(`f${id}_power`).value=s.p;
+["head","torso","larm","rarm","lleg","rleg"].forEach((x,i)=>{
+let el=document.getElementById(`f${id}_${x}`);el.value=s.c[i];el.oninput({target:el})
+});
+let hc=document.getElementById(`f${id}_haircolor`);
+hc.value=s.h;hc.oninput({target:hc});
+let ht=document.getElementById(`f${id}_hat`);
+ht.value=s.t;ht.onchange({target:ht});
+document.getElementById(`f${id}_name`).oninput({target:document.getElementById(`f${id}_name`)});
+}
+save1.onclick=()=>localStorage.setItem("f1",JSON.stringify(getState(1)));
+save2.onclick=()=>localStorage.setItem("f2",JSON.stringify(getState(2)));
+load1.onclick=()=>applyState(1,JSON.parse(localStorage.getItem("f1")||"null"));
+load2.onclick=()=>applyState(2,JSON.parse(localStorage.getItem("f2")||"null"));
+
+f1_power.oninput=e=>f1_power_label.textContent=e.target.value;
+f2_power.oninput=e=>f2_power_label.textContent=e.target.value;
+
+// fight
+const log=document.getElementById("log");
+function logLine(t){let d=document.createElement("div");d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight}
+function dmg(p){return p==100?100:(5+Math.random()*6|0)*p}
+function laser(stick){
+let l=document.createElement("div");l.className="laser";stick.parentElement.appendChild(l);
+l.style.animation="beam .5s linear";setTimeout(()=>l.remove(),500);
+}
+
+fightBtn.onclick=()=>{
+fightBtn.disabled=true;log.innerHTML="";
+let hp1=100,hp2=100,n1=f1_name.value,n2=f2_name.value,p1=+f1_power.value,p2=+f2_power.value;
+gromMode(1);gromMode(2);chunkMode(1);chunkMode(2);
+if(n1.toLowerCase()=="grom")hp1=9999;
+if(n2.toLowerCase()=="grom")hp2=9999;
+hp1El=hp1;hp2El=hp2;
+hp1El=hp1;hp2El=hp2;
+hp1El=hp1;hp2El=hp2;
+hp1El=hp1;hp2El=hp2;
+hp1El=hp1;hp2El=hp2;
+hp1El=hp1;hp2El=hp2;
+hp1El=hp1;hp2El=hp2;
+hp1El=hp1;hp2El=hp2;
+hp1El=hp1;hp2
+document.getElementById("hp1").style.width="100%";
+document.getElementById("hp2").style.width="100%";
+
+document.getElementById("sndStart").play();
+
+let s1=stick1,s2=stick2;
+logLine("⚔️ The fighters approach!");
+s1.style.animation="walk 1s forwards";
+s2.style.animation="walk 1s reverse forwards";
+
+setTimeout(()=>{
+s1.style.animation="";s2.style.animation="";
+logLine("🥊 FIGHT!");
+let turn=0;
+
+function step(){
+if(hp1<=0||hp2<=0){
+let winner=hp1>0?n1:n2;
+let loserStick=hp1>0?s2:s1;
+loserStick.classList.add("ko");
+document.getElementById("sndWin").play();
+logLine("🏆 "+winner+" wins!");
+fightBtn.disabled=false;
+return;
+}
+
+if(turn%2===0){
+let d=dmg(p1);hp2-=d;if(hp2<0)hp2=0;
+document.getElementById("sndPunch").play();
+s1.style.animation="punch .3s";s2.style.animation="hit .3s";
+document.body.style.animation="shake .3s";
+if(n1.toLowerCase()=="grom")laser(s1);
+logLine(n1+" hits "+n2+" for "+d+"!");
+document.getElementById("hp2").style.width=(hp2/100*100)+"%";
+}else{
+let d=dmg(p2);hp1-=d;if(hp1<0)hp1=0;
+document.getElementById("sndPunch").play();
+s2.style.animation="punch .3s";s1.style.animation="hit .3s";
+document.body.style.animation="shake .3s";
+if(n2.toLowerCase()=="grom")laser(s2);
+logLine(n2+" hits "+n1+" for "+d+"!");
+document.getElementById("hp1").style.width=(hp1/100*100)+"%";
+}
+
+setTimeout(()=>{
+s1.style.animation="";s2.style.animation="";
+document.body.style.animation="";
+turn++;step();
+},700);
+}
+step();
+},1100);
+};
+</script>
+</body>
+</html>
